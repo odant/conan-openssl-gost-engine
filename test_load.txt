@@ -1,0 +1,1 @@
+openssl engine -tt -vvvv -pre SO_PATH:gost_engine -pre ID:gost -pre LIST_ADD:1 -pre LOAD dynamic
