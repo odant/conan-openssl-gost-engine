@@ -62,7 +62,7 @@ index 1985eb4..ef9ed2a 100644
 +
 +    include(conan)
 +    conan_cmake_run(
-+        REQUIRES openssl/1.1.0l+2@odant/stable
++        REQUIRES openssl/1.1.1d+0@odant/stable
 +        BUILD_TYPE ${BUILD_TYPE_FOR_CONAN}
 +        IMPORTS
 +                 "bin, *.* -> ./bin"
