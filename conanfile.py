@@ -12,7 +12,7 @@ def get_safe(options, name):
 
 class CyrusSaslConan(ConanFile):
     name = "openssl-gost-engine"
-    version = "1.1.0.4-beta3"
+    version = "1.1.0.4-beta4"
     license = "Apache License v2.0"
     description = "OpenLDAP C++ library"
     url = "https://github.com/gost-engine/engine"
