@@ -36,7 +36,7 @@ class CyrusSaslConan(ConanFile):
 
     def build_requirements(self):
         if self.options.get_safe("ninja"):
-            self.build_requires("ninja_installer/1.9.0@bincrafters/stable")
+            self.build_requires("ninja/1.10.1")
         if self.options.get_safe("dll_sign"):
             self.build_requires("windows_signtool/[>=1.1]@%s/stable" % self.user)
 
