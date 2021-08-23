@@ -20,7 +20,7 @@ class CyrusSaslConan(ConanFile):
     no_copy_source = True
     build_policy = "missing"
     #
-    _openssl_version = "1.1.1h+0"
+    _openssl_version = "1.1.1k+0"
     _openssl_channel = "stable"
 
     def configure(self):
@@ -36,7 +36,7 @@ class CyrusSaslConan(ConanFile):
 
     def build_requirements(self):
         if self.options.get_safe("ninja"):
-            self.build_requires("ninja/1.10.1")
+            self.build_requires("ninja/[>=1.10.2]")
         if self.options.get_safe("dll_sign"):
             self.build_requires("windows_signtool/[>=1.1]@%s/stable" % self.user)
 
