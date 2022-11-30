@@ -16,31 +16,28 @@
 extern
 void dump_signature(const char *message, const unsigned char *buffer,
                     size_t len);
-void dump_dsa_sig(const char *message, DSA_SIG *sig);
+void dump_dsa_sig(const char *message, ECDSA_SIG *sig);
 #else
 
 # define dump_signature(a,b,c)
 # define dump_dsa_sig(a,b)
 #endif
 
-/* Convert little-endian byte array into bignum */
-BIGNUM *hashsum2bn(const unsigned char *dgst, int len)
-{
-    unsigned char buf[64];
-    int i;
-
-    if (len > sizeof(buf))
-        return NULL;
-
-    for (i = 0; i < len; i++) {
-        buf[len - i - 1] = dgst[i];
-    }
-    return BN_bin2bn(buf, len, NULL);
-}
-
 static R3410_ec_params *gost_nid2params(int nid)
 {
     R3410_ec_params *params;
+
+    /* Map tc26-2012 256-bit parameters to cp-2001 parameters */
+    switch (nid) {
+    case NID_id_tc26_gost_3410_2012_256_paramSetB:
+        nid = NID_id_GostR3410_2001_CryptoPro_A_ParamSet;
+        break;
+    case NID_id_tc26_gost_3410_2012_256_paramSetC:
+        nid = NID_id_GostR3410_2001_CryptoPro_B_ParamSet;
+        break;
+    case NID_id_tc26_gost_3410_2012_256_paramSetD:
+        nid = NID_id_GostR3410_2001_CryptoPro_C_ParamSet;
+    }
 
     /* Search nid in 2012 paramset */
     params = R3410_2012_512_paramset;
@@ -61,6 +58,27 @@ static R3410_ec_params *gost_nid2params(int nid)
     return NULL;
 }
 
+void free_cached_groups()
+{
+    R3410_ec_params *params;
+
+    /* Search nid in 2012 paramset */
+    params = R3410_2012_512_paramset;
+    while (params->nid != NID_undef) {
+	EC_GROUP_free(params->group);
+	params->group = NULL;
+        params++;
+    }
+
+    /* Search nid in 2001 paramset */
+    params = R3410_2001_paramset;
+    while (params->nid != NID_undef) {
+	EC_GROUP_free(params->group);
+	params->group = NULL;
+        params++;
+    }
+}
+
 /*
  * Fills EC_KEY structure hidden in the app_data field of DSA structure
  * with parameter information, extracted from parameter array in
@@ -74,13 +92,23 @@ int fill_GOST_EC_params(EC_KEY *eckey, int nid)
     R3410_ec_params *params = gost_nid2params(nid);
     EC_GROUP *grp = NULL;
     EC_POINT *P = NULL;
-    BIGNUM *p = NULL, *q = NULL, *a = NULL, *b = NULL, *x = NULL, *y = NULL, *cofactor = NULL;
-    BN_CTX *ctx;
+    BIGNUM *p = NULL, *q = NULL, *a = NULL, *b = NULL, *x = NULL, *y =
+        NULL, *cofactor = NULL;
+    BN_CTX *ctx = NULL;
     int ok = 0;
 
     if (!eckey || !params) {
         GOSTerr(GOST_F_FILL_GOST_EC_PARAMS, GOST_R_UNSUPPORTED_PARAMETER_SET);
         return 0;
+    }
+
+    if (params->group) {
+        EC_GROUP_set_curve_name(params->group, nid);
+        if (!EC_KEY_set_group(eckey, params->group)) {
+            GOSTerr(GOST_F_FILL_GOST_EC_PARAMS, ERR_R_INTERNAL_ERROR);
+            goto end;
+        }
+        return 1;
     }
 
     if (!(ctx = BN_CTX_new())) {
@@ -95,7 +123,7 @@ int fill_GOST_EC_params(EC_KEY *eckey, int nid)
     x = BN_CTX_get(ctx);
     y = BN_CTX_get(ctx);
     q = BN_CTX_get(ctx);
-		cofactor = BN_CTX_get(ctx);
+    cofactor = BN_CTX_get(ctx);
     if (!p || !a || !b || !x || !y || !q || !cofactor) {
         GOSTerr(GOST_F_FILL_GOST_EC_PARAMS, ERR_R_MALLOC_FAILURE);
         goto end;
@@ -104,7 +132,7 @@ int fill_GOST_EC_params(EC_KEY *eckey, int nid)
     if (!BN_hex2bn(&p, params->p)
         || !BN_hex2bn(&a, params->a)
         || !BN_hex2bn(&b, params->b)
-				|| !BN_hex2bn(&cofactor, params->cofactor) ) {
+        || !BN_hex2bn(&cofactor, params->cofactor)) {
         GOSTerr(GOST_F_FILL_GOST_EC_PARAMS, ERR_R_INTERNAL_ERROR);
         goto end;
     }
@@ -123,7 +151,7 @@ int fill_GOST_EC_params(EC_KEY *eckey, int nid)
 
     if (!BN_hex2bn(&x, params->x)
         || !BN_hex2bn(&y, params->y)
-        || !EC_POINT_set_affine_coordinates_GFp(grp, P, x, y, ctx)
+        || !EC_POINT_set_affine_coordinates(grp, P, x, y, ctx)
         || !BN_hex2bn(&q, params->q)) {
         GOSTerr(GOST_F_FILL_GOST_EC_PARAMS, ERR_R_INTERNAL_ERROR);
         goto end;
@@ -133,29 +161,27 @@ int fill_GOST_EC_params(EC_KEY *eckey, int nid)
         GOSTerr(GOST_F_FILL_GOST_EC_PARAMS, ERR_R_INTERNAL_ERROR);
         goto end;
     }
-    EC_GROUP_set_curve_name(grp, params->nid);
+    EC_GROUP_set_curve_name(grp, nid);
+    params->group = grp;
     if (!EC_KEY_set_group(eckey, grp)) {
         GOSTerr(GOST_F_FILL_GOST_EC_PARAMS, ERR_R_INTERNAL_ERROR);
         goto end;
     }
     ok = 1;
  end:
-    if (P)
-        EC_POINT_free(P);
-    if (grp)
-        EC_GROUP_free(grp);
+    EC_POINT_free(P);
     BN_CTX_end(ctx);
     BN_CTX_free(ctx);
     return ok;
 }
 
 /*
- * Computes gost_ec signature as DSA_SIG structure
+ * Computes gost_ec signature as ECDSA_SIG structure
  *
  */
-DSA_SIG *gost_ec_sign(const unsigned char *dgst, int dlen, EC_KEY *eckey)
+ECDSA_SIG *gost_ec_sign(const unsigned char *dgst, int dlen, EC_KEY *eckey)
 {
-    DSA_SIG *newsig = NULL, *ret = NULL;
+    ECDSA_SIG *newsig = NULL, *ret = NULL;
     BIGNUM *md = NULL;
     BIGNUM *order = NULL;
     const EC_GROUP *group;
@@ -170,15 +196,15 @@ DSA_SIG *gost_ec_sign(const unsigned char *dgst, int dlen, EC_KEY *eckey)
 
     OPENSSL_assert(dgst != NULL && eckey != NULL);
 
-    if (!(ctx = BN_CTX_new())) {
+    if (!(ctx = BN_CTX_secure_new())) {
         GOSTerr(GOST_F_GOST_EC_SIGN, ERR_R_MALLOC_FAILURE);
         return NULL;
     }
 
     BN_CTX_start(ctx);
     OPENSSL_assert(dlen == 32 || dlen == 64);
-    md = hashsum2bn(dgst, dlen);
-    newsig = DSA_SIG_new();
+    md = BN_lebin2bn(dgst, dlen, NULL);
+    newsig = ECDSA_SIG_new();
     if (!newsig || !md) {
         GOSTerr(GOST_F_GOST_EC_SIGN, ERR_R_MALLOC_FAILURE);
         goto err;
@@ -226,15 +252,7 @@ DSA_SIG *gost_ec_sign(const unsigned char *dgst, int dlen, EC_KEY *eckey)
                 GOSTerr(GOST_F_GOST_EC_SIGN, GOST_R_RNG_ERROR);
                 goto err;
             }
-            /*
-             * To avoid timing information leaking the length of k,
-             * compute C*k using an equivalent scalar of fixed bit-length */
-            if (!BN_add(k, k, order)
-                || (BN_num_bits(k) <= BN_num_bits(order)
-                    && !BN_add(k, k, order))) {
-                goto err;
-            }
-            if (!EC_POINT_mul(group, C, k, NULL, NULL, ctx)) {
+            if (!gost_ec_point_mul(group, C, k, NULL, NULL, ctx)) {
                 GOSTerr(GOST_F_GOST_EC_SIGN, ERR_R_EC_LIB);
                 goto err;
             }
@@ -246,7 +264,7 @@ DSA_SIG *gost_ec_sign(const unsigned char *dgst, int dlen, EC_KEY *eckey)
                 GOSTerr(GOST_F_GOST_EC_SIGN, ERR_R_MALLOC_FAILURE);
                 goto err;
             }
-            if (!EC_POINT_get_affine_coordinates_GFp(group, C, X, NULL, ctx)) {
+            if (!EC_POINT_get_affine_coordinates(group, C, X, NULL, ctx)) {
                 GOSTerr(GOST_F_GOST_EC_SIGN, ERR_R_EC_LIB);
                 goto err;
             }
@@ -284,7 +302,7 @@ DSA_SIG *gost_ec_sign(const unsigned char *dgst, int dlen, EC_KEY *eckey)
         GOSTerr(GOST_F_GOST_EC_SIGN, ERR_R_MALLOC_FAILURE);
         goto err;
     }
-    DSA_SIG_set0(newsig, new_r, new_s);
+    ECDSA_SIG_set0(newsig, new_r, new_s);
 
     ret = newsig;
  err:
@@ -295,7 +313,7 @@ DSA_SIG *gost_ec_sign(const unsigned char *dgst, int dlen, EC_KEY *eckey)
     if (md)
         BN_free(md);
     if (!ret && newsig) {
-        DSA_SIG_free(newsig);
+        ECDSA_SIG_free(newsig);
     }
     return ret;
 }
@@ -305,13 +323,12 @@ DSA_SIG *gost_ec_sign(const unsigned char *dgst, int dlen, EC_KEY *eckey)
  *
  */
 int gost_ec_verify(const unsigned char *dgst, int dgst_len,
-                   DSA_SIG *sig, EC_KEY *ec)
+                   ECDSA_SIG *sig, EC_KEY *ec)
 {
     BN_CTX *ctx;
     const EC_GROUP *group = (ec) ? EC_KEY_get0_group(ec) : NULL;
     BIGNUM *order;
-    BIGNUM *md = NULL, *e = NULL, *R = NULL, *v = NULL,
-        *z1 = NULL, *z2 = NULL;
+    BIGNUM *md = NULL, *e = NULL, *R = NULL, *v = NULL, *z1 = NULL, *z2 = NULL;
     const BIGNUM *sig_s = NULL, *sig_r = NULL;
     BIGNUM *X = NULL, *tmp = NULL;
     EC_POINT *C = NULL;
@@ -345,7 +362,7 @@ int gost_ec_verify(const unsigned char *dgst, int dgst_len,
         goto err;
     }
 
-    DSA_SIG_get0(sig, &sig_r, &sig_s);
+    ECDSA_SIG_get0(sig, &sig_r, &sig_s);
 
     if (BN_is_zero(sig_s) || BN_is_zero(sig_r) ||
         (BN_cmp(sig_s, order) >= 1) || (BN_cmp(sig_r, order) >= 1)) {
@@ -355,7 +372,7 @@ int gost_ec_verify(const unsigned char *dgst, int dgst_len,
     }
 
     OPENSSL_assert(dgst_len == 32 || dgst_len == 64);
-    md = hashsum2bn(dgst, dgst_len);
+    md = BN_lebin2bn(dgst, dgst_len, NULL);
     if (!md || !BN_mod(e, md, order, ctx)) {
         GOSTerr(GOST_F_GOST_EC_VERIFY, ERR_R_INTERNAL_ERROR);
         goto err;
@@ -390,11 +407,11 @@ int gost_ec_verify(const unsigned char *dgst, int dgst_len,
         GOSTerr(GOST_F_GOST_EC_VERIFY, ERR_R_MALLOC_FAILURE);
         goto err;
     }
-    if (!EC_POINT_mul(group, C, z1, pub_key, z2, ctx)) {
+    if (!gost_ec_point_mul(group, C, z1, pub_key, z2, ctx)) {
         GOSTerr(GOST_F_GOST_EC_VERIFY, ERR_R_EC_LIB);
         goto err;
     }
-    if (!EC_POINT_get_affine_coordinates_GFp(group, C, X, NULL, ctx)) {
+    if (!EC_POINT_get_affine_coordinates(group, C, X, NULL, ctx)) {
         GOSTerr(GOST_F_GOST_EC_VERIFY, ERR_R_EC_LIB);
         goto err;
     }
@@ -442,7 +459,7 @@ int gost_ec_compute_public(EC_KEY *ec)
         return 0;
     }
 
-    ctx = BN_CTX_new();
+    ctx = BN_CTX_secure_new();
     if (!ctx) {
         GOSTerr(GOST_F_GOST_EC_COMPUTE_PUBLIC, ERR_R_MALLOC_FAILURE);
         return 0;
@@ -461,7 +478,7 @@ int gost_ec_compute_public(EC_KEY *ec)
         goto err;
     }
 
-    if (!EC_POINT_mul(group, pub_key, priv_key, NULL, NULL, ctx)) {
+    if (!gost_ec_point_mul(group, pub_key, priv_key, NULL, NULL, ctx)) {
         GOSTerr(GOST_F_GOST_EC_COMPUTE_PUBLIC, ERR_R_EC_LIB);
         goto err;
     }
@@ -476,6 +493,101 @@ int gost_ec_compute_public(EC_KEY *ec)
     BN_CTX_end(ctx);
     BN_CTX_free(ctx);
     return ok;
+}
+
+int gost_ec_point_mul(const EC_GROUP *group, EC_POINT *r, const BIGNUM *n,
+                      const EC_POINT *q, const BIGNUM *m, BN_CTX *ctx)
+{
+    if (group == NULL || r == NULL || ctx == NULL)
+        return 0;
+
+    if (m != NULL && n != NULL) {
+        /* verification */
+        if (q == NULL)
+            return 0;
+        switch(EC_GROUP_get_curve_name(group)) {
+            case NID_id_GostR3410_2001_CryptoPro_A_ParamSet:
+            case NID_id_GostR3410_2001_CryptoPro_XchA_ParamSet:
+            case NID_id_tc26_gost_3410_2012_256_paramSetB:
+                return point_mul_two_id_GostR3410_2001_CryptoPro_A_ParamSet(group, r, n, q, m, ctx);
+            case NID_id_GostR3410_2001_CryptoPro_B_ParamSet:
+            case NID_id_tc26_gost_3410_2012_256_paramSetC:
+                return point_mul_two_id_GostR3410_2001_CryptoPro_B_ParamSet(group, r, n, q, m, ctx);
+            case NID_id_GostR3410_2001_CryptoPro_C_ParamSet:
+            case NID_id_GostR3410_2001_CryptoPro_XchB_ParamSet:
+            case NID_id_tc26_gost_3410_2012_256_paramSetD:
+                return point_mul_two_id_GostR3410_2001_CryptoPro_C_ParamSet(group, r, n, q, m, ctx);
+            case NID_id_GostR3410_2001_TestParamSet:
+                return point_mul_two_id_GostR3410_2001_TestParamSet(group, r, n, q, m, ctx);
+            case NID_id_tc26_gost_3410_2012_256_paramSetA:
+                return point_mul_two_id_tc26_gost_3410_2012_256_paramSetA(group, r, n, q, m, ctx);
+            case NID_id_tc26_gost_3410_2012_512_paramSetA:
+                return point_mul_two_id_tc26_gost_3410_2012_512_paramSetA(group, r, n, q, m, ctx);
+            case NID_id_tc26_gost_3410_2012_512_paramSetB:
+                return point_mul_two_id_tc26_gost_3410_2012_512_paramSetB(group, r, n, q, m, ctx);
+            case NID_id_tc26_gost_3410_2012_512_paramSetC:
+                return point_mul_two_id_tc26_gost_3410_2012_512_paramSetC(group, r, n, q, m, ctx);
+            default:
+                return EC_POINT_mul(group, r, n, q, m, ctx);
+        }
+    } else if (n != NULL) {
+        /* mul g */
+        switch(EC_GROUP_get_curve_name(group)) {
+            case NID_id_GostR3410_2001_CryptoPro_A_ParamSet:
+            case NID_id_GostR3410_2001_CryptoPro_XchA_ParamSet:
+            case NID_id_tc26_gost_3410_2012_256_paramSetB:
+                return point_mul_g_id_GostR3410_2001_CryptoPro_A_ParamSet(group, r, n, ctx);
+            case NID_id_GostR3410_2001_CryptoPro_B_ParamSet:
+            case NID_id_tc26_gost_3410_2012_256_paramSetC:
+                return point_mul_g_id_GostR3410_2001_CryptoPro_B_ParamSet(group, r, n, ctx);
+            case NID_id_GostR3410_2001_CryptoPro_C_ParamSet:
+            case NID_id_GostR3410_2001_CryptoPro_XchB_ParamSet:
+            case NID_id_tc26_gost_3410_2012_256_paramSetD:
+                return point_mul_g_id_GostR3410_2001_CryptoPro_C_ParamSet(group, r, n, ctx);
+            case NID_id_GostR3410_2001_TestParamSet:
+                return point_mul_g_id_GostR3410_2001_TestParamSet(group, r, n, ctx);
+            case NID_id_tc26_gost_3410_2012_256_paramSetA:
+                return point_mul_g_id_tc26_gost_3410_2012_256_paramSetA(group, r, n, ctx);
+            case NID_id_tc26_gost_3410_2012_512_paramSetA:
+                return point_mul_g_id_tc26_gost_3410_2012_512_paramSetA(group, r, n, ctx);
+            case NID_id_tc26_gost_3410_2012_512_paramSetB:
+                return point_mul_g_id_tc26_gost_3410_2012_512_paramSetB(group, r, n, ctx);
+            case NID_id_tc26_gost_3410_2012_512_paramSetC:
+                return point_mul_g_id_tc26_gost_3410_2012_512_paramSetC(group, r, n, ctx);
+            default:
+                return EC_POINT_mul(group, r, n, q, m, ctx);
+        }
+    } else if (m != NULL) {
+        if (q == NULL)
+            return 0;
+        /* mul */
+        switch(EC_GROUP_get_curve_name(group)) {
+            case NID_id_GostR3410_2001_CryptoPro_A_ParamSet:
+            case NID_id_GostR3410_2001_CryptoPro_XchA_ParamSet:
+            case NID_id_tc26_gost_3410_2012_256_paramSetB:
+                return point_mul_id_GostR3410_2001_CryptoPro_A_ParamSet(group, r, q, m, ctx);
+            case NID_id_GostR3410_2001_CryptoPro_B_ParamSet:
+            case NID_id_tc26_gost_3410_2012_256_paramSetC:
+                return point_mul_id_GostR3410_2001_CryptoPro_B_ParamSet(group, r, q, m, ctx);
+            case NID_id_GostR3410_2001_CryptoPro_C_ParamSet:
+            case NID_id_GostR3410_2001_CryptoPro_XchB_ParamSet:
+            case NID_id_tc26_gost_3410_2012_256_paramSetD:
+                return point_mul_id_GostR3410_2001_CryptoPro_C_ParamSet(group, r, q, m, ctx);
+            case NID_id_GostR3410_2001_TestParamSet:
+                return point_mul_id_GostR3410_2001_TestParamSet(group, r, q, m, ctx);
+            case NID_id_tc26_gost_3410_2012_256_paramSetA:
+                return point_mul_id_tc26_gost_3410_2012_256_paramSetA(group, r, q, m, ctx);
+            case NID_id_tc26_gost_3410_2012_512_paramSetA:
+                return point_mul_id_tc26_gost_3410_2012_512_paramSetA(group, r, q, m, ctx);
+            case NID_id_tc26_gost_3410_2012_512_paramSetB:
+                return point_mul_id_tc26_gost_3410_2012_512_paramSetB(group, r, q, m, ctx);
+            case NID_id_tc26_gost_3410_2012_512_paramSetC:
+                return point_mul_id_tc26_gost_3410_2012_512_paramSetC(group, r, q, m, ctx);
+            default:
+                return EC_POINT_mul(group, r, n, q, m, ctx);
+        }
+    }
+    return 0;
 }
 
 /*
@@ -496,7 +608,7 @@ int gost_ec_keygen(EC_KEY *ec)
     }
 
     order = BN_new();
-    d = BN_new();
+    d = BN_secure_new();
     if (!order || !d) {
         GOSTerr(GOST_F_GOST_EC_KEYGEN, ERR_R_MALLOC_FAILURE);
         goto end;

@@ -66,7 +66,7 @@ static GRASSHOPPER_INLINE void grasshopper_zero128(grasshopper_w128_t* x) {
 
 static GRASSHOPPER_INLINE void grasshopper_copy128(grasshopper_w128_t* to, const grasshopper_w128_t* from) {
 #if(GRASSHOPPER_BITS == 8 || GRASSHOPPER_BITS == 16)
-    __builtin_memcpy(&to, &from, sizeof(w128_t));
+    __builtin_memcpy(&to, &from, sizeof(grasshopper_w128_t));
 #else
 		int i;
     for (i = 0; i < GRASSHOPPER_BIT_PARTS; i++) {
@@ -77,9 +77,15 @@ static GRASSHOPPER_INLINE void grasshopper_copy128(grasshopper_w128_t* to, const
 
 static GRASSHOPPER_INLINE void grasshopper_append128(grasshopper_w128_t* x, const grasshopper_w128_t* y) {
 		int i;
+#ifdef STRICT_ALIGNMENT
+    for (i = 0; i < 16; i++) {
+        GRASSHOPPER_ACCESS_128_VALUE_8(*x, i) ^= GRASSHOPPER_ACCESS_128_VALUE_8(*y, i);
+    }
+#else
     for (i = 0; i < GRASSHOPPER_BIT_PARTS; i++) {
         GRASSHOPPER_ACCESS_128_VALUE(*x, i) ^= GRASSHOPPER_ACCESS_128_VALUE(*y, i);
     }
+#endif
 }
 
 static GRASSHOPPER_INLINE void grasshopper_plus128(grasshopper_w128_t* result, const grasshopper_w128_t* x,
@@ -119,7 +125,7 @@ extern uint8_t grasshopper_galois_alpha_to[256];
 extern uint8_t grasshopper_galois_index_of[256];
 
 static GRASSHOPPER_INLINE uint8_t grasshopper_galois_mul(uint8_t x, uint8_t y) {
-    if (__builtin_expect(x != 0 && y != 0, 1)) {
+    if (likely(x != 0 && y != 0)) {
         return grasshopper_galois_alpha_to[(grasshopper_galois_index_of[x] + grasshopper_galois_index_of[y]) %
                                          GRASSHOPPER_GALOIS_FIELD_SIZE];
     } else {
