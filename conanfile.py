@@ -4,7 +4,7 @@ import os, glob, shutil
 
 class CyrusSaslConan(ConanFile):
     name = "openssl-gost-engine"
-    version = "1.1.0.5-beta7"
+    version = "3.0.1+0"
     license = "Apache License v2.0"
     description = "OpenLDAP C++ library"
     url = "https://github.com/gost-engine/engine"
@@ -14,13 +14,20 @@ class CyrusSaslConan(ConanFile):
         "ninja": [False, True],
         "shared": [True, False]
     }
+    exports_patches = [
+          "patches/0001-CMakeLists.txt.patch"
+        , "patches/0002-add_conan.cmake.patch"
+        , "patches/0003-add_gost_engine.rc.patch"
+        , "patches/0004-gost_grasshopper_math.h.patch"
+        , "patches/0005-test_grasshopper.c.patch"
+    ]
     default_options = "dll_sign=True", "ninja=True", "shared=True"
     generators = "cmake"
-    exports_sources = "src/*", "openssl-gost-engine.patch"
+    exports_sources = "src/*", *exports_patches
     no_copy_source = True
     build_policy = "missing"
     #
-    _openssl_version = "1.1.1k+0"
+    _openssl_version = "3.0.7+0"
     _openssl_channel = "stable"
 
     def configure(self):
@@ -44,7 +51,8 @@ class CyrusSaslConan(ConanFile):
         self.requires("openssl/%s@%s/%s" % (self._openssl_version, self.user, self._openssl_channel))
 
     def source(self):
-        tools.patch(patch_file="openssl-gost-engine.patch")
+        for patch in self.exports_patches:
+            tools.patch(patch_file=patch)
 
     def build(self):
         build_type = "RelWithDebInfo" if self.settings.build_type == "Release" else "Debug"
