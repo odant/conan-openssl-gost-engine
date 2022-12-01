@@ -1,187 +1,139 @@
 diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
-index 1985eb4..ef9ed2a 100644
+index b4e6aea..7d06ca3 100644
 --- a/src/CMakeLists.txt
 +++ b/src/CMakeLists.txt
-@@ -1,34 +1,114 @@
--cmake_minimum_required(VERSION 2.8)
-+cmake_minimum_required(VERSION 3.4)
- project(ccgost C)
+@@ -8,6 +8,14 @@ include(CheckCSourceRuns)
+ 
+ enable_testing()
  
 +set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 +if(WIN32)
 +    set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 +endif()
 +
-+if(CONAN_EXPORTED)
-+    include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
-+    conan_basic_setup()
-+else()
-+    # Check build type
-+    message(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
-+    set(_supported_build_type "Debug" "Release" "RelWithDebInfo" "MinSizeRel")
-+    if((NOT DEFINED CMAKE_BUILD_TYPE) OR (NOT ${CMAKE_BUILD_TYPE} IN_LIST _supported_build_type))
-+	    message(FATAL_ERROR "Unknow build type, please specify.\n-DCMAKE_BUILD_TYPE=Debug (either Release, RelWithDebInfo, MinSizeRel)")
-+    endif()
++include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
++conan_basic_setup()
 +
-+    string(TOUPPER ${CMAKE_BUILD_TYPE} CMAKE_BUILD_TYPE_UPPER)
-+
-+    # Output directories
-+    set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-+    set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_${CMAKE_BUILD_TYPE_UPPER} ${CMAKE_BINARY_DIR}/lib) 
-+    if(WIN32)
-+        set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-+        set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_${CMAKE_BUILD_TYPE_UPPER} ${CMAKE_BINARY_DIR}/lib)
-+    else()
-+        set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-+        set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_${CMAKE_BUILD_TYPE_UPPER} ${CMAKE_BINARY_DIR}/bin)
-+    endif()
-+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-+    set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${CMAKE_BUILD_TYPE_UPPER} ${CMAKE_BINARY_DIR}/bin)
-+    if(MSVC)
-+        set(CMAKE_PDB_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-+	    set(CMAKE_PDB_OUTPUT_DIRECTORY_${CMAKE_BUILD_TYPE_UPPER} ${CMAKE_BINARY_DIR}/bin)
-+    endif()
-+    if(NOT CMAKE_INSTALL_PREFIX OR CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT OR "${CMAKE_INSTALL_PREFIX}" STREQUAL "")
-+        set(CMAKE_INSTALL_PREFIX ${CMAKE_BINARY_DIR}/install CACHE PATH "Install path" FORCE)
-+        message(STATUS "Autoset CMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}")
-+        message(STATUS "Remove directory " ${CMAKE_INSTALL_PREFIX})
-+        execute_process(COMMAND ${CMAKE_COMMAND} -E remove_directory ${CMAKE_INSTALL_PREFIX})
-+    else()
-+        message(STATUS "CMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}")
-+    endif()
-+
-+    message(STATUS "Remove directory " ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
-+    execute_process(COMMAND ${CMAKE_COMMAND} -E remove_directory ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
-+
-+    message(STATUS "Install Conan dependencies")
-+
-+    set(BUILD_TYPE_FOR_CONAN ${CMAKE_BUILD_TYPE})
-+    if(("${CMAKE_BUILD_TYPE}" STREQUAL "RelWithDebInfo") OR ("${CMAKE_BUILD_TYPE}" STREQUAL "MinSizeRel"))
-+	    set(BUILD_TYPE_FOR_CONAN "Release")
-+    endif()
-+
-+    include(conan)
-+    conan_cmake_run(
-+        REQUIRES openssl/1.1.1d+0@odant/stable
-+        BUILD_TYPE ${BUILD_TYPE_FOR_CONAN}
-+        IMPORTS
-+                 "bin, *.* -> ./bin"
-+        BASIC_SETUP NO_OUTPUT_DIRS UPDATE
-+        BUILD outdated
-+    )
-+
-+    message(STATUS "Create install rules for Conan dependencies")
-+    file(GLOB CONAN_IMPORTS ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/*)
-+    foreach(_import_file ${CONAN_IMPORTS})
-+        string(TOLOWER ${_import_file} _import_file_lower)
-+        if(${_import_file_lower} MATCHES "\\.dll$|\\.so$|\\.so\\.")
-+            message(STATUS "Create install rule as program for ${_import_file}")
-+            install(PROGRAMS ${_import_file} DESTINATION ${CMAKE_INSTALL_PREFIX})
-+	    elseif(${_import_file_lower} MATCHES "\\.pdb$")
-+            # Install PDB if needed
-+		    if(ODA_INSTALL_PDB_FILES) 
-+			    if((${CMAKE_BUILD_TYPE} STREQUAL "Debug") OR (${CMAKE_BUILD_TYPE} STREQUAL "RelWithDebInfo"))
-+				    message(STATUS "Create install rule as file for ${_import_file}")
-+				    install(FILES ${_import_file} DESTINATION ${CMAKE_INSTALL_PREFIX})
-+			    endif()
-+		    endif()
-+        endif()
-+    endforeach()
-+    message(STATUS -----------------------------------------------)
-+endif()
-+
- find_package(OpenSSL 1.1 REQUIRED)
- include_directories(${OPENSSL_INCLUDE_DIR})
+ find_package(OpenSSL 3.0 REQUIRED)
  
- enable_testing()
- 
- if (CMAKE_C_COMPILER_ID MATCHES "Clang")
--   message(STATUS "Using Clang and adding -Qunused-arguments flag")
--   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Qunused-arguments")
-+    message(STATUS "Using Clang and adding -Qunused-arguments flag")
-+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Qunused-arguments")
-+elseif (CMAKE_C_COMPILER_ID MATCHES "GNU")
-+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c98 -O3 -Werror -Qunused-arguments -Wno-unused-function -Wno-missing-braces -Wall")
-+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O2 -Werror -Wall -Wno-unused-parameter -Wno-unused-function -Wno-missing-braces -ggdb")
+ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+@@ -93,12 +101,7 @@ if (NOT RELAXED_ALIGNMENT)
+   add_definitions(-DSTRICT_ALIGNMENT)
  endif()
  
--set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c98 -O3 -Werror -Qunused-arguments -Wno-unused-function -Wno-missing-braces -Wall")
--set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O2 -Werror -Wall -Wno-unused-parameter -Wno-unused-function -Wno-missing-braces -ggdb")
+-if(MSVC)
+-  set(BIN_DIRECTORY bin/$<CONFIG>/)
+-else()
+-  set(BIN_DIRECTORY bin)
+-endif()
 -
- include (TestBigEndian)
- TEST_BIG_ENDIAN(IS_BIG_ENDIAN)
- if(IS_BIG_ENDIAN)
-- message(STATUS "BIG_ENDIAN")
-+    message(STATUS "BIG_ENDIAN")
- else()
-- message(STATUS "LITTLE_ENDIAN")
-- set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c98 -O3 -Werror -Wall")
-- set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DL_ENDIAN")
-+    message(STATUS "LITTLE_ENDIAN")
-+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c98 -O3 -Werror -Wall")
-+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DL_ENDIAN")
- endif()
- 
- set(BIN_DIRECTORY bin)
- 
--# Same soversion as OpenSSL
--set(GOST_SOVERSION "${OPENSSL_VERSION_MAJOR}.${OPENSSL_VERSION_MINOR}")
--
- set(OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/${BIN_DIRECTORY})
++set(BIN_DIRECTORY bin)
+ set(OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/${BIN_DIRECTORY})
  
  #set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${OUTPUT_DIRECTORY})
-@@ -101,6 +181,10 @@ set(GOST_ENGINE_SOURCE_FILES
-         gost_md2012.c
-         gost_pmeth.c)
+@@ -111,7 +114,7 @@ if ("${OPENSSL_ENGINES_DIR}" STREQUAL "")
+ 	include(FindPkgConfig)
+ 	pkg_get_variable(OPENSSL_ENGINES_DIR libcrypto enginesdir)
+ 	if ("${OPENSSL_ENGINES_DIR}" STREQUAL "")
+-		message( FATAL_ERROR "Unable to discover the OpenSSL engines directory. Provide the path using -DOPENSSL_ENGINES_DIR" )
++#		message( FATAL_ERROR "Unable to discover the OpenSSL engines directory. Provide the path using -DOPENSSL_ENGINES_DIR" )
+ 	endif()
+ endif()
+ 
+@@ -202,6 +205,10 @@ set(GOST_ENGINE_SOURCE_FILES
+         gost_eng.c
+         )
  
 +if(WIN32)
 +	list(APPEND GOST_ENGINE_SOURCE_FILES gost_engine.rc)
 +endif()
 +
- add_test(NAME engine
- 	 COMMAND perl run_tests
- 	 WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/test)
-@@ -114,31 +198,28 @@ add_library(gost STATIC ${GOST_LIB_SOURCE_FILES})
- set_target_properties(gost PROPERTIES POSITION_INDEPENDENT_CODE ON)
+ set(GOST_PROV_SOURCE_FILES
+         gost_prov.c
+         gost_prov_cipher.c
+@@ -339,48 +346,11 @@ set_target_properties(gost_err PROPERTIES POSITION_INDEPENDENT_CODE ON)
+ target_link_libraries(gost_err PRIVATE OpenSSL::Crypto)
  
- add_library(gost_engine SHARED ${GOST_ENGINE_SOURCE_FILES})
--set_target_properties(gost_engine PROPERTIES PREFIX "" OUTPUT_NAME "gost")
--set_target_properties(gost_engine PROPERTIES VERSION ${GOST_SOVERSION} SOVERSION ${GOST_SOVERSION})
-+#set_target_properties(gost_engine PROPERTIES PREFIX "" OUTPUT_NAME "gost222")
-+if(NOT WIN32)
-+    # Same soversion as OpenSSL
-+    set(GOST_SOVERSION "${OPENSSL_VERSION_MAJOR}.${OPENSSL_VERSION_MINOR}")
-+    set_target_properties(gost_engine PROPERTIES VERSION ${GOST_SOVERSION} SOVERSION ${GOST_SOVERSION})
-+endif()
+ # The GOST engine in module form
+-add_library(gost_engine MODULE ${GOST_ENGINE_SOURCE_FILES})
++add_library(gost_engine SHARED ${GOST_ENGINE_SOURCE_FILES})
+ # Set the suffix explicitly to adapt to OpenSSL's idea of what a
+ # module suffix should be
+-set_target_properties(gost_engine PROPERTIES
+-  PREFIX "" OUTPUT_NAME "gost" SUFFIX ${CMAKE_SHARED_LIBRARY_SUFFIX})
+ target_link_libraries(gost_engine PRIVATE gost_core gost_err)
  
- target_link_libraries(gost_engine ${OPENSSL_CRYPTO_LIBRARY} gost)
-+set(INSTALL_TARGETS_DEFAULT_ARGS RUNTIME DESTINATION bin LIBRARY DESTINATION lib ARCHIVE DESTINATION lib)
-+install(TARGETS gost_engine ${INSTALL_TARGETS_DEFAULT_ARGS})
- 
- set(GOST_12_SUM_SOURCE_FILES
-         gost12sum.c
-         )
- 
--add_executable(gost12sum ${GOST_12_SUM_SOURCE_FILES})
+-if (NOT MSVC)
+-# The GOST engine in library form
+-add_library(lib_gost_engine SHARED ${GOST_ENGINE_SOURCE_FILES})
+-set_target_properties(lib_gost_engine PROPERTIES
+-  COMPILE_DEFINITIONS "BUILDING_ENGINE_AS_LIBRARY"
+-  PUBLIC_HEADER gost-engine.h
+-  OUTPUT_NAME "gost")
+-target_link_libraries(lib_gost_engine PRIVATE gost_core gost_err)
+-endif()
 -
--target_link_libraries(gost12sum gost)
-+#add_executable(gost12sum ${GOST_12_SUM_SOURCE_FILES})
-+#target_link_libraries(gost12sum gost)
- 
+-# The GOST provider uses this
+-add_subdirectory(libprov)
+-
+-# The GOST provider in module form
+-add_library(gost_prov MODULE
+-  ${GOST_PROV_SOURCE_FILES} ${GOST_ENGINE_SOURCE_FILES}
+-  )
+-set_target_properties(gost_prov PROPERTIES
+-  PREFIX "" OUTPUT_NAME "gostprov" SUFFIX ${CMAKE_SHARED_LIBRARY_SUFFIX}
+-  COMPILE_DEFINITIONS "BUILDING_GOST_PROVIDER;OPENSSL_NO_DYNAMIC_ENGINE"
+-  )
+-target_link_libraries(gost_prov PRIVATE gost_core libprov)
+-
+-if (NOT MSVC)
+-# The GOST provider in library form
+-add_library(lib_gost_prov SHARED
+-  ${GOST_PROV_SOURCE_FILES} ${GOST_ENGINE_SOURCE_FILES}
+-  )
+-set_target_properties(lib_gost_prov PROPERTIES
+-  OUTPUT_NAME "gostprov"
+-  COMPILE_DEFINITIONS "BUILDING_GOST_PROVIDER;BUILDING_PROVIDER_AS_LIBRARY;OPENSSL_NO_DYNAMIC_ENGINE"
+-  )
+-target_link_libraries(lib_gost_prov PRIVATE gost_core libprov)
+-endif()
+-
  set(GOST_SUM_SOURCE_FILES
          gostsum.c
          )
+@@ -413,31 +383,11 @@ add_executable(test_tlstree test_tlstree.c)
+ target_link_libraries(test_tlstree PUBLIC OpenSSL::Crypto)
  
--add_executable(gostsum ${GOST_SUM_SOURCE_FILES})
+ # install programs and manuals
+-install(TARGETS gostsum gost12sum RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+-install(FILES gostsum.1 gost12sum.1 DESTINATION ${CMAKE_INSTALL_MANDIR}/man1)
 -
--target_link_libraries(gostsum gost)
--
--set(GOST_SUM_12_SOURCE_FILES
--        gostsum12.c
--        )
-+#add_executable(gostsum ${GOST_SUM_SOURCE_FILES})
-+#target_link_libraries(gostsum gost)
+-# install engine and provider in module form
+-install(TARGETS gost_engine EXPORT GostEngineConfig
+-        LIBRARY  DESTINATION ${OPENSSL_ENGINES_DIR}
+-        RUNTIME  DESTINATION ${OPENSSL_ENGINES_DIR})
+-install(TARGETS gost_prov EXPORT GostProviderConfig
+-        LIBRARY  DESTINATION ${OPENSSL_MODULES_DIR}
+-        RUNTIME  DESTINATION ${OPENSSL_MODULES_DIR})
+-if (NOT MSVC)
+-# install engine and provider in library form
+-install(TARGETS lib_gost_engine EXPORT GostEngineConfig
+-        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+-install(TARGETS lib_gost_prov EXPORT GostProviderConfig
+-        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+-endif()
++install(TARGETS gost_engine
++        LIBRARY  DESTINATION ${CMAKE_INSTALL_LIBDIR}
++        RUNTIME  DESTINATION ${CMAKE_INSTALL_BINDIR})
  
--#add_executable(gostsum12 ${GOST_SUM_12_SOURCE_FILES})
--#
--#target_link_libraries(gostsum12 gost)
+ if (MSVC)
+-  install(FILES $<TARGET_PDB_FILE:gostsum> $<TARGET_PDB_FILE:gost12sum>
+-    EXPORT GostEngineConfig DESTINATION ${CMAKE_INSTALL_BINDIR} OPTIONAL)
+   install(FILES $<TARGET_PDB_FILE:gost_engine>
+-    EXPORT GostEngineConfig DESTINATION ${OPENSSL_ENGINES_DIR} OPTIONAL)
+-  install(FILES $<TARGET_PDB_FILE:gost_prov>
+-    EXPORT GostProviderConfig DESTINATION ${OPENSSL_MODULES_DIR} OPTIONAL)
++    DESTINATION ${CMAKE_INSTALL_BINDIR} OPTIONAL)
+ endif()
+-install(EXPORT GostEngineConfig DESTINATION GostEngine/share/cmake/GostEngine)
+-install(EXPORT GostProviderConfig DESTINATION GostEngine/share/cmake/GostProvider)

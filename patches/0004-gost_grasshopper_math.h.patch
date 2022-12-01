@@ -1,15 +1,32 @@
 diff --git a/src/gost_grasshopper_math.h b/src/gost_grasshopper_math.h
-index 176d16a..3291267 100644
+index 91f276f..a43157a 100644
 --- a/src/gost_grasshopper_math.h
 +++ b/src/gost_grasshopper_math.h
-@@ -118,6 +118,10 @@ static GRASSHOPPER_INLINE void grasshopper_convert128(grasshopper_w128_t* x, con
+@@ -124,6 +124,13 @@ static GRASSHOPPER_INLINE void grasshopper_convert128(grasshopper_w128_t* x, con
  extern uint8_t grasshopper_galois_alpha_to[256];
  extern uint8_t grasshopper_galois_index_of[256];
  
 +#ifdef _WIN32
-+#    define __builtin_expect(Condition, likely) Condition
++#    ifndef likely
++#        define likely(Condition) (Condition)
++#        define _OWN_LIKELY_DEFINITION_5BCCDFA7
++#    endif
 +#endif
 +
  static GRASSHOPPER_INLINE uint8_t grasshopper_galois_mul(uint8_t x, uint8_t y) {
-     if (__builtin_expect(x != 0 && y != 0, 1)) {
+     if (likely(x != 0 && y != 0)) {
          return grasshopper_galois_alpha_to[(grasshopper_galois_index_of[x] + grasshopper_galois_index_of[y]) %
+@@ -133,6 +140,13 @@ static GRASSHOPPER_INLINE uint8_t grasshopper_galois_mul(uint8_t x, uint8_t y) {
+     }
+ }
+ 
++#ifdef _WIN32
++#    ifdef _OWN_LIKELY_DEFINITION_5BCCDFA7
++#        undef likely
++#        undef _OWN_LIKELY_DEFINITION_5BCCDFA7
++#    endif
++#endif
++
+ #if defined(__cplusplus)
+ }
+ #endif
