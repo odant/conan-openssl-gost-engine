@@ -1,0 +1,171 @@
+diff --git a/src/test_grasshopper.c b/src/test_grasshopper.c
+index 19e18bf..5d89a4a 100644
+--- a/src/test_grasshopper.c
++++ b/src/test_grasshopper.c
+@@ -134,7 +134,10 @@ static int test_block(const EVP_CIPHER *type, const char *name,
+     const unsigned char *iv, size_t iv_size, int acpkm)
+ {
+     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+-    unsigned char c[size];
++    
++    const size_t bufferSize = size * sizeof(unsigned char);
++    unsigned char* buffer = (unsigned char*)malloc(bufferSize);
++
+     int outlen, tmplen;
+     int ret = 0, test;
+ 
+@@ -144,16 +147,16 @@ static int test_block(const EVP_CIPHER *type, const char *name,
+     EVP_CIPHER_CTX_init(ctx);
+     T(EVP_CipherInit_ex(ctx, type, NULL, K, iv, 1));
+     T(EVP_CIPHER_CTX_set_padding(ctx, 0));
+-    memset(c, 0, sizeof(c));
++    memset(buffer, 0, bufferSize);
+     if (acpkm)
+-	T(EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_KEY_MESH, 256 / 8, NULL));
+-    T(EVP_CipherUpdate(ctx, c, &outlen, pt, size));
+-    T(EVP_CipherFinal_ex(ctx, c + outlen, &tmplen));
++	    T(EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_KEY_MESH, 256 / 8, NULL));
++    T(EVP_CipherUpdate(ctx, buffer, &outlen, pt, size));
++    T(EVP_CipherFinal_ex(ctx, buffer + outlen, &tmplen));
+     EVP_CIPHER_CTX_cleanup(ctx);
+     printf("  c[%d] = ", outlen);
+-    hexdump(c, outlen);
++    hexdump(buffer, outlen);
+ 
+-    TEST_ASSERT(outlen != size || memcmp(c, exp, size));
++    TEST_ASSERT(outlen != size || memcmp(buffer, exp, size));
+     ret |= test;
+ 
+     /* test with small chunks of block size */
+@@ -163,22 +166,22 @@ static int test_block(const EVP_CIPHER *type, const char *name,
+     EVP_CIPHER_CTX_init(ctx);
+     T(EVP_CipherInit_ex(ctx, type, NULL, K, iv, 1));
+     T(EVP_CIPHER_CTX_set_padding(ctx, 0));
+-    memset(c, 0, sizeof(c));
++    memset(buffer, 0, bufferSize);
+     if (acpkm)
+-	T(EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_KEY_MESH, 256 / 8, NULL));
++	    T(EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_KEY_MESH, 256 / 8, NULL));
+     for (z = 0; z < blocks; z++) {
+-	int offset = z * GRASSHOPPER_BLOCK_SIZE;
+-	int sz = GRASSHOPPER_BLOCK_SIZE;
++	    int offset = z * GRASSHOPPER_BLOCK_SIZE;
++	    int sz = GRASSHOPPER_BLOCK_SIZE;
+ 
+-	T(EVP_CipherUpdate(ctx, c + offset, &outlen, pt + offset, sz));
++	    T(EVP_CipherUpdate(ctx, buffer + offset, &outlen, pt + offset, sz));
+     }
+     outlen = z * GRASSHOPPER_BLOCK_SIZE;
+-    T(EVP_CipherFinal_ex(ctx, c + outlen, &tmplen));
++    T(EVP_CipherFinal_ex(ctx, buffer + outlen, &tmplen));
+     EVP_CIPHER_CTX_cleanup(ctx);
+     printf("  c[%d] = ", outlen);
+-    hexdump(c, outlen);
++    hexdump(buffer, outlen);
+ 
+-    TEST_ASSERT(outlen != size || memcmp(c, exp, size));
++    TEST_ASSERT(outlen != size || memcmp(buffer, exp, size));
+     ret |= test;
+ 
+     /* test with single big chunk */
+@@ -186,19 +189,22 @@ static int test_block(const EVP_CIPHER *type, const char *name,
+     EVP_CIPHER_CTX_init(ctx);
+     T(EVP_CipherInit_ex(ctx, type, NULL, K, iv, 0));
+     T(EVP_CIPHER_CTX_set_padding(ctx, 0));
+-    memset(c, 0, sizeof(c));
++    memset(buffer, 0, bufferSize);
+     if (acpkm)
+-	T(EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_KEY_MESH, 256 / 8, NULL));
+-    T(EVP_CipherUpdate(ctx, c, &outlen, exp, size));
+-    T(EVP_CipherFinal_ex(ctx, c + outlen, &tmplen));
++	    T(EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_KEY_MESH, 256 / 8, NULL));
++    T(EVP_CipherUpdate(ctx, buffer, &outlen, exp, size));
++    T(EVP_CipherFinal_ex(ctx, buffer + outlen, &tmplen));
+     EVP_CIPHER_CTX_cleanup(ctx);
+     EVP_CIPHER_CTX_free(ctx);
+     printf("  d[%d] = ", outlen);
+-    hexdump(c, outlen);
++    hexdump(buffer, outlen);
+ 
+-    TEST_ASSERT(outlen != size || memcmp(c, pt, size));
++    TEST_ASSERT(outlen != size || memcmp(buffer, pt, size));
+     ret |= test;
+ 
++    if (buffer)
++        free(buffer);
++
+     return ret;
+ }
+ 
+@@ -207,6 +213,9 @@ static int test_stream(const EVP_CIPHER *type, const char *name,
+     const unsigned char *iv, size_t iv_size, int acpkm)
+ {
+     EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
++    const size_t bufferSize = size * sizeof(unsigned char);
++    unsigned char* buffer = (unsigned char*) malloc(bufferSize);
++    OPENSSL_assert(buffer);
+     int ret = 0, test;
+     int z;
+ 
+@@ -214,36 +223,37 @@ static int test_stream(const EVP_CIPHER *type, const char *name,
+     /* Cycle through all lengths from 1 upto maximum size */
+     printf("Stream encryption test from GOST R 34.13-2015 [%s] \n", name);
+     for (z = 1; z <= size; z++) {
+-	unsigned char c[size];
+-	int outlen, tmplen;
+-	int sz = 0;
+-	int i;
++	    int outlen, tmplen;
++	    int sz = 0;
++	    int i;
+ 
+-	EVP_CIPHER_CTX_init(ctx);
+-	EVP_CipherInit_ex(ctx, type, NULL, K, iv, 1);
+-	EVP_CIPHER_CTX_set_padding(ctx, 0);
+-	memset(c, 0xff, sizeof(c));
+-	if (acpkm)
+-	    T(EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_KEY_MESH, 256 / 8, NULL));
+-	for (i = 0; i < size; i += z) {
+-	    if (i + z > size)
+-		sz = size - i;
+-	    else
+-		sz = z;
+-	    EVP_CipherUpdate(ctx, c + i, &outlen, pt + i, sz);
+-	    OPENSSL_assert(outlen == sz);
+-	}
+-	outlen = i - z + sz;
+-	EVP_CipherFinal_ex(ctx, c + outlen, &tmplen);
+-	EVP_CIPHER_CTX_cleanup(ctx);
++	    EVP_CIPHER_CTX_init(ctx);
++	    EVP_CipherInit_ex(ctx, type, NULL, K, iv, 1);
++	    EVP_CIPHER_CTX_set_padding(ctx, 0);
++	    memset(buffer, 0xff, bufferSize);
++	    if (acpkm)
++	        T(EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_KEY_MESH, 256 / 8, NULL));
++	    for (i = 0; i < size; i += z) {
++	        if (i + z > size)
++		        sz = size - i;
++	        else
++		        sz = z;
++	        EVP_CipherUpdate(ctx, buffer + i, &outlen, pt + i, sz);
++	        OPENSSL_assert(outlen == sz);
++	    }
++	    outlen = i - z + sz;
++	    EVP_CipherFinal_ex(ctx, buffer + outlen, &tmplen);
++	    EVP_CIPHER_CTX_cleanup(ctx);
+ 
+-	test = outlen != size || memcmp(c, exp, size);
+-	printf("%c", test ? 'E' : '+');
+-	ret |= test;
++	    test = outlen != size || memcmp(buffer, exp, size);
++	    printf("%c", test ? 'E' : '+');
++	    ret |= test;
+     }
+     printf("\n");
+     TEST_ASSERT(ret);
+     EVP_CIPHER_CTX_free(ctx);
++    if (buffer)
++        free(buffer);
+ 
+     return ret;
+ }

@@ -1,0 +1,50 @@
+diff --git a/src/gost_engine.rc b/src/gost_engine.rc
+new file mode 100644
+index 0000000..8bfc60f
+--- /dev/null
++++ b/src/gost_engine.rc
+@@ -0,0 +1,44 @@
++#include <windows.h>
++
++/////////////////////////////////////////////////////////////////////////////
++//
++// Version
++//
++
++VS_VERSION_INFO VERSIONINFO
++ FILEVERSION 1,1,0,5
++ PRODUCTVERSION 1,1,0,5
++ FILEFLAGSMASK 0x3fL
++#ifdef _DEBUG
++ FILEFLAGS 0x1L
++#else
++ FILEFLAGS 0x0L
++#endif
++ FILEOS 0x40004L
++ FILETYPE 0x2L
++ FILESUBTYPE 0x0L
++BEGIN
++    BLOCK "StringFileInfo"
++    BEGIN
++        BLOCK "040904e2"
++        BEGIN
++            VALUE "Comments", "A reference implementation of the Russian GOST crypto algorithms for OpenSSL.\0"
++            VALUE "CompanyName", "GostEngine\0"
++            VALUE "FileDescription", "GostEngine library\0"
++            VALUE "FileVersion", "1, 1, 0, 5\0"
++            VALUE "InternalName", "gost_engine\0"
++            VALUE "LegalCopyright", "Apache License 2.0\0"
++            VALUE "LegalTrademarks", "See https://github.com/gost-engine/engine\0"
++            VALUE "OriginalFilename", "gost_engine.dll\0"
++            VALUE "PrivateBuild", "\0"
++            VALUE "ProductName", "GostEngine\0"
++            VALUE "ProductVersion", "1, 1, 0, 5\0"
++            VALUE "SpecialBuild", "\0"
++        END
++    END
++    BLOCK "VarFileInfo"
++    BEGIN
++        VALUE "Translation", 0x409, 1250
++    END
++END
++
