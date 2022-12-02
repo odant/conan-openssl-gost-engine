@@ -19,7 +19,6 @@ class CyrusSaslConan(ConanFile):
         , "patches/0002-add_conan.cmake.patch"
         , "patches/0003-add_gost_engine.rc.patch"
         , "patches/0004-gost_grasshopper_math.h.patch"
-        , "patches/0005-test_grasshopper.c.patch"
     ]
     default_options = "dll_sign=True", "ninja=True", "shared=True"
     generators = "cmake"
