@@ -1,5 +1,5 @@
 diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
-index b4e6aea..7d06ca3 100644
+index b4e6aea..35d9862 100644
 --- a/src/CMakeLists.txt
 +++ b/src/CMakeLists.txt
 @@ -8,6 +8,14 @@ include(CheckCSourceRuns)
@@ -51,18 +51,17 @@ index b4e6aea..7d06ca3 100644
  set(GOST_PROV_SOURCE_FILES
          gost_prov.c
          gost_prov_cipher.c
-@@ -339,48 +346,11 @@ set_target_properties(gost_err PROPERTIES POSITION_INDEPENDENT_CODE ON)
+@@ -339,47 +346,13 @@ set_target_properties(gost_err PROPERTIES POSITION_INDEPENDENT_CODE ON)
  target_link_libraries(gost_err PRIVATE OpenSSL::Crypto)
  
  # The GOST engine in module form
 -add_library(gost_engine MODULE ${GOST_ENGINE_SOURCE_FILES})
-+add_library(gost_engine SHARED ${GOST_ENGINE_SOURCE_FILES})
- # Set the suffix explicitly to adapt to OpenSSL's idea of what a
- # module suffix should be
+-# Set the suffix explicitly to adapt to OpenSSL's idea of what a
+-# module suffix should be
 -set_target_properties(gost_engine PROPERTIES
 -  PREFIX "" OUTPUT_NAME "gost" SUFFIX ${CMAKE_SHARED_LIBRARY_SUFFIX})
- target_link_libraries(gost_engine PRIVATE gost_core gost_err)
- 
+-target_link_libraries(gost_engine PRIVATE gost_core gost_err)
+-
 -if (NOT MSVC)
 -# The GOST engine in library form
 -add_library(lib_gost_engine SHARED ${GOST_ENGINE_SOURCE_FILES})
@@ -96,12 +95,17 @@ index b4e6aea..7d06ca3 100644
 -  COMPILE_DEFINITIONS "BUILDING_GOST_PROVIDER;BUILDING_PROVIDER_AS_LIBRARY;OPENSSL_NO_DYNAMIC_ENGINE"
 -  )
 -target_link_libraries(lib_gost_prov PRIVATE gost_core libprov)
--endif()
--
++add_library(gost_engine SHARED ${GOST_ENGINE_SOURCE_FILES})
++if(NOT WIN32)
++    # Same soversion as OpenSSL
++    set(GOST_SOVERSION "${OPENSSL_VERSION_MAJOR}.${OPENSSL_VERSION_MINOR}")
++    set_target_properties(gost_engine PROPERTIES VERSION ${GOST_SOVERSION} SOVERSION ${GOST_SOVERSION})
+ endif()
++target_link_libraries(gost_engine PRIVATE gost_core gost_err)
+ 
  set(GOST_SUM_SOURCE_FILES
          gostsum.c
-         )
-@@ -413,31 +383,11 @@ add_executable(test_tlstree test_tlstree.c)
+@@ -413,31 +386,11 @@ add_executable(test_tlstree test_tlstree.c)
  target_link_libraries(test_tlstree PUBLIC OpenSSL::Crypto)
  
  # install programs and manuals
