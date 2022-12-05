@@ -19,6 +19,8 @@ class CyrusSaslConan(ConanFile):
         , "patches/0002-add_conan.cmake.patch"
         , "patches/0003-add_gost_engine.rc.patch"
         , "patches/0004-gost_grasshopper_math.h.patch"
+        , "patches/0005-gost12sum.c.patch"
+        , "patches/0006-CMakeLists.txt.disable_warn_as_error.patch"
     ]
     default_options = "dll_sign=True", "ninja=True", "shared=True"
     generators = "cmake"
@@ -26,7 +28,7 @@ class CyrusSaslConan(ConanFile):
     no_copy_source = True
     build_policy = "missing"
     #
-    _openssl_version = "3.0.7+1"
+    _openssl_version = "3.0.7+2"
     _openssl_channel = "stable"
 
     def configure(self):

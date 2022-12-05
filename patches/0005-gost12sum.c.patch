@@ -1,0 +1,27 @@
+diff --git a/src/gost12sum.c b/src/gost12sum.c
+index e644a61..ae1eb22 100644
+--- a/src/gost12sum.c
++++ b/src/gost12sum.c
+@@ -73,6 +73,11 @@ int finish_hash(gost_hash_ctx * ctx, byte * hashval)
+     return 1;
+ }
+ 
++#ifdef _WIN32
++#    pragma warning(push)
++#    pragma warning(disable: 4702)
++#endif
++
+ int main(int argc, char **argv)
+ {
+     int c, i;
+@@ -211,6 +216,10 @@ int main(int argc, char **argv)
+     exit(errors ? 1 : 0);
+ }
+ 
++#ifdef _WIN32
++#    pragma warning(pop)
++#endif
++
+ int hash_file(gost_hash_ctx * ctx, char *filename, char *sum, int mode,
+               int hashsize)
+ {
