@@ -51,7 +51,7 @@ index b4e6aea..35d9862 100644
  set(GOST_PROV_SOURCE_FILES
          gost_prov.c
          gost_prov_cipher.c
-@@ -339,47 +346,13 @@ set_target_properties(gost_err PROPERTIES POSITION_INDEPENDENT_CODE ON)
+@@ -349,47 +356,13 @@ set_target_properties(gost_err PROPERTIES POSITION_INDEPENDENT_CODE ON)
  target_link_libraries(gost_err PRIVATE OpenSSL::Crypto)
  
  # The GOST engine in module form
@@ -105,7 +105,7 @@ index b4e6aea..35d9862 100644
  
  set(GOST_SUM_SOURCE_FILES
          gostsum.c
-@@ -413,31 +386,11 @@ add_executable(test_tlstree test_tlstree.c)
+@@ -423,31 +396,11 @@ add_executable(test_tlstree test_tlstree.c)
  target_link_libraries(test_tlstree PUBLIC OpenSSL::Crypto)
  
  # install programs and manuals
@@ -139,5 +139,5 @@ index b4e6aea..35d9862 100644
 -    EXPORT GostProviderConfig DESTINATION ${OPENSSL_MODULES_DIR} OPTIONAL)
 +    DESTINATION ${CMAKE_INSTALL_BINDIR} OPTIONAL)
  endif()
--install(EXPORT GostEngineConfig DESTINATION GostEngine/share/cmake/GostEngine)
--install(EXPORT GostProviderConfig DESTINATION GostEngine/share/cmake/GostProvider)
+-install(EXPORT GostEngineConfig DESTINATION share/cmake/GostEngine)
+-install(EXPORT GostProviderConfig DESTINATION share/cmake/GostProvider)

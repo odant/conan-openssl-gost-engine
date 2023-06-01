@@ -12,8 +12,8 @@ index 0000000..8bfc60f
 +//
 +
 +VS_VERSION_INFO VERSIONINFO
-+ FILEVERSION 3,0,1,0
-+ PRODUCTVERSION 3,0,1,0
++ FILEVERSION 3,0,1,1
++ PRODUCTVERSION 3,0,1,1
 + FILEFLAGSMASK 0x3fL
 +#ifdef _DEBUG
 + FILEFLAGS 0x1L
@@ -31,14 +31,14 @@ index 0000000..8bfc60f
 +            VALUE "Comments", "A reference implementation of the Russian GOST crypto algorithms for OpenSSL.\0"
 +            VALUE "CompanyName", "GostEngine\0"
 +            VALUE "FileDescription", "GostEngine library\0"
-+            VALUE "FileVersion", "3, 0, 1, 0\0"
++            VALUE "FileVersion", "3, 0, 1, 1\0"
 +            VALUE "InternalName", "gost_engine\0"
 +            VALUE "LegalCopyright", "Apache License 2.0\0"
 +            VALUE "LegalTrademarks", "See https://github.com/gost-engine/engine\0"
 +            VALUE "OriginalFilename", "gost_engine.dll\0"
 +            VALUE "PrivateBuild", "\0"
 +            VALUE "ProductName", "GostEngine\0"
-+            VALUE "ProductVersion", "3, 0, 1, 0\0"
++            VALUE "ProductVersion", "3, 0, 1, 1\0"
 +            VALUE "SpecialBuild", "\0"
 +        END
 +    END
