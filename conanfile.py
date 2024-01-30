@@ -4,7 +4,7 @@ import os, glob, shutil
 
 class CyrusSaslConan(ConanFile):
     name = "openssl-gost-engine"
-    version = "3.0.1.2+0"
+    version = "3.0.3+0"
     license = "Apache License v2.0"
     description = "OpenLDAP C++ library"
     url = "https://github.com/gost-engine/engine"
@@ -28,7 +28,7 @@ class CyrusSaslConan(ConanFile):
     no_copy_source = True
     build_policy = "missing"
     #
-    _openssl_version = "3.0.7+2"
+    _openssl_version = "3.0.12+0"
     _openssl_channel = "stable"
 
     def configure(self):
