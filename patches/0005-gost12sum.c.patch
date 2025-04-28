@@ -1,7 +1,7 @@
 diff --git a/src/gost12sum.c b/src/gost12sum.c
 index e644a61..ae1eb22 100644
---- a/src/gost12sum.c
-+++ b/src/gost12sum.c
+--- a/gost12sum.c
++++ b/gost12sum.c
 @@ -73,6 +73,11 @@ int finish_hash(gost_hash_ctx * ctx, byte * hashval)
      return 1;
  }

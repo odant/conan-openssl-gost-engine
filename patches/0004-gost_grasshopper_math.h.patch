@@ -1,7 +1,7 @@
 diff --git a/src/gost_grasshopper_math.h b/src/gost_grasshopper_math.h
 index 91f276f..a43157a 100644
---- a/src/gost_grasshopper_math.h
-+++ b/src/gost_grasshopper_math.h
+--- a/gost_grasshopper_math.h
++++ b/gost_grasshopper_math.h
 @@ -124,6 +124,13 @@ static GRASSHOPPER_INLINE void grasshopper_convert128(grasshopper_w128_t* x, con
  extern uint8_t grasshopper_galois_alpha_to[256];
  extern uint8_t grasshopper_galois_index_of[256];
