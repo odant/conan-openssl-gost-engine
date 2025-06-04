@@ -4,7 +4,7 @@ import os, glob, shutil
 
 class OpenSSLGOSTEngine(ConanFile):
     name = "openssl-gost-engine"
-    version = "3.0.3+0"
+    version = "3.0.3+1"
     license = "Apache License v2.0"
     description = "A reference implementation of the Russian GOST crypto algorithms for OpenSSL"
     url = "https://github.com/gost-engine/engine"
