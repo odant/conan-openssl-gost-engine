@@ -20,6 +20,7 @@ class OpenSSLGOSTEngine(ConanFile):
         , "patches/0004-gost_grasshopper_math.h.patch"
         , "patches/0005-gost12sum.c.patch"
         , "patches/0006-CMakeLists.txt.disable_warn_as_error.patch"
+        , "patches/0007-getopt.h.fixup_clangcl_build.patch"
     ]
     default_options = { 
         "dll_sign": True,

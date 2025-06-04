@@ -1,0 +1,38 @@
+diff --git a/src/getopt.h b/src/getopt.h
+index aea89a0..8bfbeb2 100644
+--- a/getopt.h
++++ b/getopt.h
+@@ -115,6 +115,18 @@ static char EMSG[] = "";
+ #define	EMSG		""
+ #endif
+ 
++#if !defined(__UNISTD_H_SOURCED__) && !defined(__GETOPT_LONG_H__)
++
++struct option		/* specification for a long form option...	*/
++{
++  const char *name;		/* option name, without leading hyphens */
++  int         has_arg;		/* does it take an argument?		*/
++  int        *flag;		/* where to save its status, or NULL	*/
++  int         val;		/* its associated status value		*/
++};
++
++#endif
++
+ static int getopt_internal(int, char * const *, const char *,
+ 			   const struct option *, int *, int);
+ static int parse_long_options(char * const *, const char *,
+@@ -265,14 +277,6 @@ extern int optreset;
+ extern "C" {
+ #endif
+ 
+-struct option		/* specification for a long form option...	*/
+-{
+-  const char *name;		/* option name, without leading hyphens */
+-  int         has_arg;		/* does it take an argument?		*/
+-  int        *flag;		/* where to save its status, or NULL	*/
+-  int         val;		/* its associated status value		*/
+-};
+-
+ enum    		/* permitted values for its `has_arg' field...	*/
+ {
+   no_argument = 0,      	/* option never takes an argument	*/
